@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **macshot has a new developer signature.** After this update, macOS may ask you once to allow Screen Recording for macshot again (and Accessibility or Input Monitoring if you use element snapping, keystrokes or click highlights). Your settings, history and recordings stay as they are. If macshot already looks switched on in System Settings but capturing does not work, select macshot there, remove it with the minus button (−), then add it back with the plus button (+). Technical users can instead run `tccutil reset ScreenCapture com.sw33tlie.macshot.macshot` (offline version: `com.sw33tlie.macshot.offline`) and relaunch macshot.
+- The permission window now tells returning users how to remove and re-add macshot, since switching it off and on does not restore access after a signature change.
+
 ## [4.4.0-beta.3] - 2026-09-24
 
 ### Changed
