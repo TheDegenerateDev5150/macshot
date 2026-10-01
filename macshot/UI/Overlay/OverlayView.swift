@@ -7885,7 +7885,7 @@ class OverlayView: NSView {
 
     private func showMicDeviceMenu(anchorView: NSView) {
         let menu = NSMenu()
-        let savedUID = UserDefaults.standard.string(forKey: "selectedMicDeviceUID")
+        let savedUID = MicrophoneDeviceSelection.persistentDeviceID(UserDefaults.standard.string(forKey: "selectedMicDeviceUID"))
         let micOn = UserDefaults.standard.bool(forKey: "recordMicAudio")
 
         // "None" option — turns off mic recording
@@ -7899,7 +7899,7 @@ class OverlayView: NSView {
         let devices = AVCaptureDevice.DiscoverySession(
             deviceTypes: [.builtInMicrophone, .externalUnknown],
             mediaType: .audio, position: .unspecified).devices
-            .filter { !$0.uniqueID.contains("CADefaultDeviceAggregate") }
+            .filter { !MicrophoneDeviceSelection.isTemporaryDefaultDevice($0.uniqueID) }
         for device in devices {
             let item = NSMenuItem(title: device.localizedName, action: #selector(micMenuSelectDevice(_:)), keyEquivalent: "")
             item.target = self
@@ -8943,6 +8943,8 @@ class OverlayView: NSView {
 
         let engine = AVAudioEngine()
         let inputNode = engine.inputNode
+        guard MicrophoneDeviceSelection.configureLevelMeter(inputNode,
+            savedID: UserDefaults.standard.string(forKey: "selectedMicDeviceUID")) else { return }
 
         let format = inputNode.outputFormat(forBus: 0)
         guard format.sampleRate > 0 && format.channelCount > 0 else { return }
