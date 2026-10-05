@@ -1,5 +1,11 @@
 # Changelog
 
+## [4.4.0-beta.6] - 2026-10-05
+
+### Fixed
+
+- **Recording stopped with "Audio encoding could not keep up"**: when the encoder briefly stopped accepting audio, the whole take was aborted. macshot now drops the oldest queued audio and keeps recording, and stops only if the stall lasts more than 30 seconds of audio. When it happens, the writer state is logged (Console, category `RecordingWriter`) to help track down the cause. (#444)
+
 ## [4.4.0-beta.5] - 2026-10-01
 
 ### Upgrade notice

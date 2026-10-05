@@ -311,7 +311,7 @@ final class MP4WriterSession: @unchecked Sendable {
     private func complete(_ result: Result<Void, Error>) {
         guard finalResult == nil else { return }
         finalResult = result
-        Self.log.notice("Recording audio: trimmed=\(self.audioStats.trimmed, privacy: .public) retimed=\(self.audioStats.retimed, privacy: .public) dropped=\(self.audioStats.droppedBeforeBoundary, privacy: .public) invalid=\(self.audioStats.invalid, privacy: .public) ignored=\(self.audioStats.ignored, privacy: .public) received=\(self.audioStats.received, privacy: .public) systemEnd=\(self.lastAudioEnd.seconds - self.startTime.seconds, privacy: .public) micEnd=\(self.lastMicEnd.seconds - self.startTime.seconds, privacy: .public)")
+        Self.log.notice("Recording audio: trimmed=\(self.audioStats.trimmed, privacy: .public) retimed=\(self.audioStats.retimed, privacy: .public) dropped=\(self.audioStats.droppedBeforeBoundary, privacy: .public) invalid=\(self.audioStats.invalid, privacy: .public) ignored=\(self.audioStats.ignored, privacy: .public) received=\(self.audioStats.received, privacy: .public) overflowSeconds=\(self.audioStats.overflowSeconds, privacy: .public) systemEnd=\(self.lastAudioEnd.seconds - self.startTime.seconds, privacy: .public) micEnd=\(self.lastMicEnd.seconds - self.startTime.seconds, privacy: .public)")
         mode = .finished
         maintenanceTimer?.cancel()
         maintenanceTimer = nil
@@ -425,21 +425,63 @@ final class MP4WriterSession: @unchecked Sendable {
         // Make room first: a sample must not be refused while earlier audio
         // could still be handed to the encoder.
         if sessionStarted { drainAudio(isMic: isMic) }
-        var pending = isMic ? pendingMicSamples : pendingAudioSamples
         if sessionStarted {
-            if !pending.append(adjusted) {
-                fail(WriterError.audioOverload)
-                return
+            if !appendPending(adjusted, isMic: isMic) {
+                // The encoder is not accepting audio (interleaving against a
+                // stalled video track, disk or AAC backpressure). Losing the
+                // oldest queued audio keeps the take; abort only if the
+                // stall persists.
+                if !makeRoomForAudio(adjusted, isMic: isMic) { return }
             }
         } else {
             // Pre-roll is useful only near the first complete video frame.
             // Keep the newest short window even if video never arrives.
-            while !pending.append(adjusted), pending.removeFirst() != nil {}
-            while pending.count > 1, pending.bufferedSeconds > Self.preRollSeconds { pending.removeFirst() }
+            while !appendPending(adjusted, isMic: isMic), removeOldestPending(isMic: isMic) != nil {}
+            trimPreRoll(isMic: isMic)
         }
-        if isMic { pendingMicSamples = pending } else { pendingAudioSamples = pending }
         if sessionStarted { drainAudio(isMic: isMic) }
     }
+
+    private func appendPending(_ sample: CMSampleBuffer, isMic: Bool) -> Bool {
+        isMic ? pendingMicSamples.append(sample) : pendingAudioSamples.append(sample)
+    }
+
+    private func removeOldestPending(isMic: Bool) -> CMSampleBuffer? {
+        isMic ? pendingMicSamples.removeFirst() : pendingAudioSamples.removeFirst()
+    }
+
+    private func trimPreRoll(isMic: Bool) {
+        while (isMic ? pendingMicSamples.count : pendingAudioSamples.count) > 1,
+              (isMic ? pendingMicSamples.bufferedSeconds : pendingAudioSamples.bufferedSeconds) > Self.preRollSeconds {
+            _ = removeOldestPending(isMic: isMic)
+        }
+    }
+
+    /// Drops the oldest queued audio to admit `sample`. Returns false (after
+    /// failing the take) once more than `maximumDroppedSeconds` were dropped.
+    private func makeRoomForAudio(_ sample: CMSampleBuffer, isMic: Bool) -> Bool {
+        if !audioStats.loggedOverflow {
+            audioStats.loggedOverflow = true
+            let video = videoInput?.isReadyForMoreMediaData ?? false
+            let audio = (isMic ? micAudioInput : audioInput)?.isReadyForMoreMediaData ?? false
+            let lead = CMTimeSubtract(CMSampleBufferGetPresentationTimeStamp(sample), lastVideoTime).seconds
+            Self.log.error("Audio queue full (\(isMic ? "mic" : "system", privacy: .public)): writer=\(self.assetWriter?.status.rawValue ?? -1, privacy: .public) videoReady=\(video, privacy: .public) audioReady=\(audio, privacy: .public) audioLeadsVideo=\(lead, privacy: .public)s droppedVideoFrames=\(self.droppedVideoFrames, privacy: .public) frames=\(self.frameCount, privacy: .public)")
+        }
+        while !appendPending(sample, isMic: isMic) {
+            guard let oldest = removeOldestPending(isMic: isMic) else { return true }
+            let seconds = max(0, CMSampleBufferGetDuration(oldest).seconds)
+            audioStats.overflowSeconds += seconds
+            if audioStats.overflowSeconds > Self.maximumDroppedAudioSeconds {
+                fail(WriterError.audioOverload)
+                return false
+            }
+        }
+        return true
+    }
+
+    /// Total queued audio that may be dropped over one take before the
+    /// recording is stopped.
+    private static let maximumDroppedAudioSeconds = 30.0
 
     /// Audio kept before the first video frame. Generous because a first frame
     /// can arrive late with an earlier capture time than audio already queued;
@@ -495,7 +537,8 @@ final class MP4WriterSession: @unchecked Sendable {
 
     private struct AudioStats {
         var trimmed = 0, retimed = 0, droppedBeforeBoundary = 0, invalid = 0, ignored = 0, received = 0
-        var loggedTrimFailure = false, loggedInvalid = false
+        var loggedTrimFailure = false, loggedInvalid = false, loggedOverflow = false
+        var overflowSeconds = 0.0
     }
     private var audioStats = AudioStats()
     private static let log = Logger(subsystem: "com.sw33tlie.macshot", category: "RecordingWriter")
