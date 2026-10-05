@@ -24,10 +24,10 @@
     <enclosure url="https://github.com/sw33tLie/macshot/releases/download/v4.3.0/MacShot.dmg" length="7671357" type="application/octet-stream" sparkle:edSignature="MUlmcDHGutKlmP4YJmBmcETZUiEDi6MG29UTK8oTYAcBYx2+Df9aCTfzUn2czhiAIOzO+9sBAjl8HlLfWFVOBQ==" />
 </item>
 <item>
-    <title>v4.4.0-beta.5</title>
-    <pubDate>Thu, 01 Oct 2026 00:52:50 +0000</pubDate>
-    <sparkle:version>116</sparkle:version>
-    <sparkle:shortVersionString>4.4.0-beta.5</sparkle:shortVersionString>
+    <title>v4.4.0-beta.6</title>
+    <pubDate>Mon, 05 Oct 2026 00:53:55 +0000</pubDate>
+    <sparkle:version>117</sparkle:version>
+    <sparkle:shortVersionString>4.4.0-beta.6</sparkle:shortVersionString>
     <sparkle:minimumSystemVersion>12.3</sparkle:minimumSystemVersion>
     <sparkle:channel>beta</sparkle:channel>
     <description><![CDATA[
@@ -38,13 +38,13 @@
         ul { padding-left: 18px; margin: 4px 0; }
         li { margin: 4px 0; line-height: 1.5; }
       </style>
-      <h3>Upgrade notice</h3><ul>  <li><b>Upgrading from 4.3.x or 4.4.0-beta.1/beta.2?</b> macshot has a new developer signature, introduced in beta.3. macOS may ask you to grant permissions again. If Screen Recording already looks enabled but capture fails, remove macshot with the minus button (−) in System Settings, then add it back from Applications with the plus button (+). Re-enable Accessibility or Input Monitoring if prompted. Your settings, history and recordings are preserved. Users who already restored permissions in beta.3 or beta.4 should not need to repeat this.</li>  </ul><h3>Fixed</h3><ul>  <li><b>OCR on macOS 27</b>: text recognition could hang or return no text. Recognition now has a timeout and a fast fallback, shared by OCR, screenshot translation, auto-redaction and the smart marker. (#439)</li> <li><b>Microphone recording failed even while its level meter reacted</b>: older builds could save a temporary default microphone ID that stopped working after restarting macshot. These stale selections now resolve to the current default microphone. Explicitly selected microphones are preserved, including when disconnected.</li> <li><b>Microphone level meter</b> now listens to the selected recording microphone instead of always using the system default.</li></ul>
+      <h3>Fixed</h3><ul>  <li><b>Recording stopped with "Audio encoding could not keep up"</b>: when the encoder briefly stopped accepting audio, the whole take was aborted. macshot now drops the oldest queued audio and keeps recording, and stops only if the stall lasts more than 30 seconds of audio. When it happens, the writer state is logged (Console, category `RecordingWriter`) to help track down the cause. (#444)</li></ul>
     ]]></description>
     <enclosure
-        url="https://github.com/sw33tLie/macshot/releases/download/v4.4.0-beta.5/MacShot.dmg"
-        length="8609380"
+        url="https://github.com/sw33tLie/macshot/releases/download/v4.4.0-beta.6/MacShot.dmg"
+        length="8609173"
         type="application/octet-stream"
-        sparkle:edSignature="91DzMTFwVDiSi9ClVjq1eNdPHhaLjBCGq3K5/BbpUbPcMlLB2lw3T4VdEC6MrtzKyK0rJ4Lm4+f3SIoDxKTdBg=="
+        sparkle:edSignature="PsPY6YIwWaJv85fGTpcjrpFcm0cHgGcARXKqsuZ/L/CTCnUNFHJ3AxjEX0icb/NJ90CDohLlteVceyxY14GJAg=="
     />
 </item>
     </channel>
